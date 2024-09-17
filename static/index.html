@@ -1,0 +1,139 @@
+<!-- index.html -->
+
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <title>ToDo List</title>
+    <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/3.3.7/css/bootstrap.min.css">
+</head>
+<body>
+
+<div class="container">
+    <h1>Список задач</h1>
+    <div class="form-inline">
+        <input type="text" id="title" class="form-control" placeholder="Название задачи">
+        <select id="priority" class="form-control">
+            <option value="low">Низкий</option>
+            <option value="medium">Средний</option>
+            <option value="high">Высокий</option>
+        </select>
+        <button id="addTask" class="btn btn-primary">Добавить задачу</button>
+        <select id="statusFilter" class="form-control" style="margin-left: 10px;">
+            <option value="">Все</option>
+            <option value="incomplete">Незавершенные</option>
+            <option value="complete">Завершенные</option>
+        </select>
+    </div>
+    <hr>
+    <h3>Текущие задачи</h3>
+    <table class="table table-striped" id="tasksTable">
+        <thead>
+            <tr>
+                <th>ID</th>
+                <th>Название</th>
+                <th>Приоритет</th>
+                <th>Статус</th>
+                <th>Действия</th>
+            </tr>
+        </thead>
+        <tbody>
+        </tbody>
+    </table>
+</div>
+
+<script>
+    const apiUrl = 'http://localhost:8000/api';
+
+    async function fetchTasks() {
+        const status = document.getElementById('statusFilter').value;
+        try {
+            const response = await fetch(`${apiUrl}/tasks${status ? '?status=' + status : ''}`);
+            if (!response.ok) throw new Error('Ошибка при получении задач');
+            const tasks = await response.json();
+            const tasksTable = document.getElementById('tasksTable').getElementsByTagName('tbody')[0];
+            tasksTable.innerHTML = '';
+            tasks.forEach(task => {
+                const row = tasksTable.insertRow();
+                row.insertCell(0).innerText = task.id;
+                row.insertCell(1).innerText = task.title;
+                row.insertCell(2).innerText = task.priority;
+                row.insertCell(3).innerText = task.status;
+                const actionsCell = row.insertCell(4);
+
+                const deleteButton = document.createElement('button');
+                deleteButton.innerText = 'Удалить';
+                deleteButton.className = 'btn btn-danger btn-sm';
+                deleteButton.onclick = () => deleteTask(task.id);
+                actionsCell.appendChild(deleteButton);
+
+                const completeButton = document.createElement('button');
+                completeButton.innerText = 'Завершить';
+                completeButton.className = 'btn btn-success btn-sm';
+                completeButton.style.marginLeft = '5px';
+                completeButton.onclick = () => completeTask(task.id);
+                actionsCell.appendChild(completeButton);
+            });
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    async function addTask() {
+        const title = document.getElementById('title').value;
+        const priority = document.getElementById('priority').value;
+        if (!title) {
+            alert('Введите название задачи');
+            return;
+        }
+        try {
+            const response = await fetch(`${apiUrl}/tasks`, {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({title, priority})
+            });
+            if (!response.ok) throw new Error('Ошибка при добавлении задачи');
+            await fetchTasks();
+            document.getElementById('title').value = '';
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    async function deleteTask(id) {
+        try {
+            const response = await fetch(`${apiUrl}/tasks/${id}`, {method: 'DELETE'});
+            if (!response.ok) throw new Error('Ошибка при удалении задачи');
+            await fetchTasks();
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    async function completeTask(id) {
+        try {
+            const response = await fetch(`${apiUrl}/tasks/${id}`, {
+                method: 'PUT',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({status: 'complete'})
+            });
+            if (!response.ok) throw new Error('Ошибка при обновлении задачи');
+            await fetchTasks();
+        } catch (error) {
+            console.error(error);
+            alert(error.message);
+        }
+    }
+
+    document.getElementById('addTask').addEventListener('click', addTask);
+    document.getElementById('statusFilter').addEventListener('change', fetchTasks);
+
+    // Загружаем задачи при загрузке страницы
+    fetchTasks();
+</script>
+
+</body>
+</html>
